@@ -1,0 +1,35 @@
+{
+  "name": "aesthetic-eval",
+  "version": "1.0.0",
+  "description": "Website aesthetic quality evaluation tool — scores any static HTML/CSS site across 10 UI/UX dimensions",
+  "type": "module",
+  "bin": {
+    "aesthetic-eval": "./evaluate.mjs",
+    "aesthetic-eval-url": "./evaluate-url.mjs"
+  },
+  "scripts": {
+    "evaluate": "node evaluate.mjs",
+    "evaluate:url": "node evaluate-url.mjs",
+    "test": "node evaluate-url.mjs https://www.google.com Google"
+  },
+  "keywords": [
+    "website",
+    "aesthetic",
+    "evaluation",
+    "ui",
+    "ux",
+    "scoring",
+    "accessibility",
+    "wcag",
+    "css",
+    "html",
+    "audit",
+    "quality"
+  ],
+  "author": "Charlie Yan",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "css-tree": "^3.1.0"
+  }
+}
