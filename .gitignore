@@ -1,3 +1,11 @@
 node_modules/
+dist/
 report.json
+report.sarif
 comparison-report.json
+web/.next/
+web/node_modules/
+web/data/
+web/.env
+web/.claude/
+.claude/
