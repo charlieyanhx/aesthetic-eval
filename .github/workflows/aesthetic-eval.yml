@@ -1,0 +1,72 @@
+# aesthetic-eval — GitHub Actions workflow template
+#
+# Runs aesthetic-eval on your site, uploads SARIF to GitHub Code Scanning,
+# and gates PRs on a minimum quality threshold.
+#
+# Setup:
+# 1. Copy this file to your repo's .github/workflows/
+# 2. Set SITE_URL or SITE_DIR to your target
+# 3. Adjust THRESHOLD as needed (0-100)
+#
+# SARIF results appear under Security > Code scanning alerts.
+
+name: Aesthetic Quality Check
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+permissions:
+  security-events: write  # Required for SARIF upload
+
+env:
+  # Set ONE of these:
+  SITE_URL: ""           # e.g., "https://your-site.com"
+  SITE_DIR: "./out"      # e.g., "./dist" or "./build"
+  THRESHOLD: "80"        # Minimum score to pass (0 = no gating)
+  EVAL_MODE: "static"    # "static" or "browser" (browser requires Playwright)
+
+jobs:
+  aesthetic-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Build your site first (uncomment and adjust)
+      # - run: npm ci && npm run build
+
+      - name: Install aesthetic-eval
+        run: npm install -g aesthetic-eval
+
+      # Install Playwright (only if using browser mode)
+      - name: Install Playwright
+        if: env.EVAL_MODE == 'browser'
+        run: npx playwright install chromium
+
+      - name: Run aesthetic-eval
+        run: |
+          TARGET="${SITE_URL:-$SITE_DIR}"
+          aesthetic-eval "$TARGET" \
+            --mode "$EVAL_MODE" \
+            --format sarif \
+            --output report.sarif \
+            --threshold "$THRESHOLD"
+
+      - name: Upload SARIF to GitHub
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: report.sarif
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aesthetic-eval-report
+          path: report.sarif

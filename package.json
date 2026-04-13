@@ -1,17 +1,27 @@
 {
   "name": "aesthetic-eval",
-  "version": "1.0.0",
-  "description": "Website aesthetic quality evaluation tool — scores any static HTML/CSS site across 10 UI/UX dimensions",
+  "version": "2.0.0",
+  "description": "Best-in-class website aesthetic quality evaluation — scores any site across 10 UI/UX dimensions with research-backed thresholds",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "bin": {
-    "aesthetic-eval": "./evaluate.mjs",
-    "aesthetic-eval-url": "./evaluate-url.mjs"
+    "aesthetic-eval": "./dist/cli.js"
   },
   "scripts": {
-    "evaluate": "node evaluate.mjs",
-    "evaluate:url": "node evaluate-url.mjs",
-    "test": "node evaluate-url.mjs https://www.google.com Google"
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
+  "files": [
+    "dist",
+    "aesthetic-eval.config.json",
+    ".github/workflows/aesthetic-eval.yml"
+  ],
   "keywords": [
     "website",
     "aesthetic",
@@ -24,12 +34,57 @@
     "css",
     "html",
     "audit",
-    "quality"
+    "quality",
+    "design",
+    "lighthouse",
+    "axe-core",
+    "sarif",
+    "ci",
+    "color-harmony",
+    "type-scale",
+    "web-vitals",
+    "playwright",
+    "design-system"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/charlieyanhx/aesthetic-eval.git"
+  },
+  "homepage": "https://github.com/charlieyanhx/aesthetic-eval#readme",
+  "bugs": {
+    "url": "https://github.com/charlieyanhx/aesthetic-eval/issues"
+  },
   "author": "Charlie Yan",
   "license": "MIT",
   "dependencies": {
+    "@mdn/browser-compat-data": "^7.3.11",
+    "axe-core": "^4.11.2",
+    "browserslist": "^4.28.2",
     "cheerio": "^1.0.0",
+    "color-convert": "^3.1.3",
+    "commander": "^13.0.0",
     "css-tree": "^3.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/axe-core": "^2.0.2",
+    "@types/color-convert": "^2.0.4",
+    "@types/css-tree": "^2.3.11",
+    "@types/node": "^22.0.0",
+    "playwright": "^1.59.1",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "peerDependencies": {
+    "playwright": "^1.50.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

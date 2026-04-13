@@ -1,109 +1,263 @@
-# Aesthetic Eval
+# aesthetic-eval
 
-A CLI tool that scores website aesthetic quality across **10 UI/UX dimensions**. Works with local static HTML builds or live URLs.
+Best-in-class website aesthetic quality evaluation. Scores any site across 10 UI/UX dimensions with research-backed thresholds.
 
-## Install
+No other open-source tool produces a unified design quality score. Lighthouse does performance, axe-core does accessibility, Wallace does CSS complexity. **aesthetic-eval answers: "how well-designed is this website?"**
 
-```bash
-npm install
-```
+## Features
 
-## Usage
+- **10 scoring categories**: color contrast, typography, spacing, layout, imagery, accessibility, performance, animation, cross-browser compatibility, text wrapping
+- **Guard-based scoring**: each check has a capped penalty, citation, and configurable threshold — no runaway deductions
+- **Dual mode**: browser (Playwright + axe-core) for real computed styles, static (cheerio + css-tree) for fast CI
+- **SARIF output**: integrates with GitHub Code Scanning for PR-level design feedback
+- **Baseline diffing**: save snapshots, compare between commits to catch design regressions
+- **Research-backed**: every threshold cites WCAG, Material Design, Bringhurst, or peer-reviewed research
 
-### Evaluate a local build (static HTML directory)
-
-```bash
-node evaluate.mjs [path-to-directory]
-```
-
-Defaults to `./out` if no path given. Works with any directory containing HTML and CSS files — Next.js static exports, Hugo builds, plain HTML sites, etc.
+## Quick Start
 
 ```bash
-# Analyze a Next.js static export
-node evaluate.mjs ../my-site/out
+# Install globally
+npm install -g aesthetic-eval
 
-# Analyze any HTML directory
-node evaluate.mjs /var/www/html
+# Evaluate a live site (browser mode, requires Playwright)
+aesthetic-eval https://example.com
+
+# Evaluate a local build directory (static mode, no browser needed)
+aesthetic-eval ./dist --mode static
+
+# Output SARIF for CI
+aesthetic-eval ./out --format sarif --output report.sarif --threshold 80
 ```
 
-### Evaluate live websites by URL
+## Installation
 
 ```bash
-node evaluate-url.mjs <url> [name] [url2] [name2] ...
+npm install aesthetic-eval
 ```
 
-Fetches the page HTML + linked CSS and scores it. Pass multiple URLs for a comparison table.
+For browser mode, install Playwright browsers:
 
 ```bash
-# Single site
-node evaluate-url.mjs https://www.apple.com Apple
-
-# Compare multiple sites
-node evaluate-url.mjs \
-  https://www.goldmansachs.com "Goldman Sachs" \
-  https://www.apple.com Apple \
-  https://www.google.com Google
+npx playwright install chromium
 ```
 
-## Scoring Dimensions
+## CLI Usage
 
-Each category is scored 0-100. The overall score is a weighted average.
+```
+aesthetic-eval [target] [options]
 
-| # | Category | Weight | What it checks |
-|---|----------|--------|----------------|
-| 1 | Color & Contrast | 15% | Unique colors, WCAG AA contrast ratios, palette consistency |
-| 2 | Typography | 12% | Font families, sizes, line-height, letter-spacing, responsive sizing |
-| 3 | Spacing Consistency | 10% | 4px/8px grid adherence, spacing scale, outlier detection |
-| 4 | Layout & Structure | 12% | Heading hierarchy, semantic HTML, max-width constraints, viewport |
-| 5 | Imagery | 8% | Alt text, dimensions, lazy loading |
-| 6 | Accessibility | 10% | Lang attr, ARIA landmarks, skip link, focus-visible, zoom |
-| 7 | Performance Indicators | 5% | CSS rule count, unused classes, page size, preload hints |
-| 8 | Animation & Interaction | 5% | Transitions, hover states, prefers-reduced-motion, durations |
-| 9 | Cross-Browser & Device Compat | 13% | Media queries, breakpoints, flexbox/grid, vendor prefixes, touch targets, responsive images, print/dark mode |
-| 10 | Text Wrapping & Line Breaking | 10% | overflow-wrap, text-wrap, text-overflow, max-width on text, orphans/widows, excessive `<br>` usage |
+Arguments:
+  target                     URL or local directory (default: ./out)
+
+Options:
+  -m, --mode <mode>          static or browser (default: browser)
+  -f, --format <format>      table, json, or sarif (default: table)
+  -c, --config <path>        path to aesthetic-eval.config.json
+  -t, --threshold <number>   exit code 1 if score below this (default: 0)
+  -o, --output <path>        write report to file
+  --save-baseline <path>     save evaluation as baseline snapshot
+  --compare-baseline <path>  compare against a saved baseline
+  --compare <urls...>        compare multiple sites side-by-side
+  -V, --version              output version number
+  -h, --help                 display help
+```
+
+### Examples
+
+```bash
+# Compare two sites
+aesthetic-eval https://site-a.com --compare https://site-b.com
+
+# Save baseline before a redesign
+aesthetic-eval https://mysite.com --save-baseline baseline.json
+
+# Compare after changes
+aesthetic-eval https://mysite.com --compare-baseline baseline.json
+
+# CI gating: fail if score < 80
+aesthetic-eval ./build --mode static --threshold 80
+```
+
+## Programmatic API
+
+```typescript
+import { evaluate } from "aesthetic-eval";
+
+const result = await evaluate("https://example.com", { mode: "browser" });
+
+console.log(result.score);  // 0-100
+console.log(result.grade);  // A+, A, B, C, D, F
+console.log(result.categories); // per-category scores and guard details
+```
+
+### Types
+
+```typescript
+interface OverallResult {
+  score: number;
+  grade: string;
+  generatedAt: string;
+  categories: CategoryResult[];
+}
+
+interface CategoryResult {
+  id: string;
+  name: string;
+  score: number;
+  weight: number;
+  guards: GuardResult[];
+}
+```
+
+## Scoring Categories
+
+| Category | Weight | What it measures |
+|----------|--------|------------------|
+| Color & Contrast | 15% | WCAG contrast ratios (AA/AAA), palette size, color harmony (LCH) |
+| Typography | 12% | Type scale consistency, font count, line height, line length, font-display |
+| Spacing | 10% | Grid alignment, spacing consistency, design token coverage |
+| Layout | 12% | Viewport meta, z-index layering, responsive patterns |
+| Imagery | 8% | Alt text, modern formats (WebP/AVIF), srcset/sizes, aspect ratios |
+| Accessibility | 10% | axe-core violations (browser), ARIA, semantic HTML, skip links |
+| Performance | 5% | CSS size, unused rules, Core Web Vitals (LCP, CLS, TBT in browser) |
+| Animation | 5% | prefers-reduced-motion, duration ranges, will-change usage |
+| Cross-Browser | 13% | Real CSS property support via @mdn/browser-compat-data + browserslist |
+| Text Wrapping | 10% | Overflow handling, nowrap abuse, `<br>` tag overuse, reflow at 320px |
+
+## Configuration
+
+Create `aesthetic-eval.config.json` to customize weights and thresholds:
+
+```json
+{
+  "mode": "browser",
+  "weights": {
+    "color-contrast": 0.15,
+    "typography": 0.12,
+    "accessibility": 0.10
+  },
+  "thresholds": {
+    "contrastRatioNormal": 4.5,
+    "contrastRatioLarge": 3.0,
+    "minBodyFontSize": 12,
+    "minBodyLineHeight": 1.3,
+    "maxFontFamilies": 4,
+    "minTouchTarget": 44
+  },
+  "wcagLevel": "AA",
+  "targetBrowsers": "> 0.5%, last 2 versions, not dead"
+}
+```
+
+### All Thresholds (with Citations)
+
+| Threshold | Default | Citation |
+|-----------|---------|----------|
+| `contrastRatioNormal` | 4.5 | WCAG 2.2 SC 1.4.3 (AA) |
+| `contrastRatioLarge` | 3.0 | WCAG 2.2 SC 1.4.3 (AA, large text) |
+| `minHarmonyScore` | 60 | Cohen-Or et al. (2006); Matsuda (1995) |
+| `minBodyFontSize` | 12 | WCAG 1.4.4; Material Design 3 |
+| `minBodyLineHeight` | 1.3 | WCAG 1.4.12; Bringhurst |
+| `lineLengthRange` | [45, 75] | Bringhurst p.26; WCAG 1.4.8 |
+| `maxFontFamilies` | 4 | Material Design 3; Google Fonts |
+| `minTypeScaleConsistency` | 60 | Tim Brown, "More Meaningful Typography" (2012) |
+| `spacingGridBase` | 4 | Material Design 3 (4dp grid); Nathan Curtis (2015) |
+| `animationDurationRange` | [150, 500] | Material Design Motion; Nielsen (1993) |
+| `minTouchTarget` | 44 | WCAG 2.5.8; Apple HIG; Material Design 3 |
+| `lcpThresholds` | [2.5, 4.0] | Web Vitals (Google, 2020) |
+| `clsThresholds` | [0.1, 0.25] | Web Vitals (Google, 2020) |
+| `tbtThresholds` | [200, 600] | Web Vitals (Google, 2020) |
+
+## GitHub Actions
+
+Copy `.github/workflows/aesthetic-eval.yml` to your repo:
+
+```yaml
+name: Aesthetic Quality Check
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  security-events: write
+
+jobs:
+  aesthetic-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Build your site first
+      # - run: npm ci && npm run build
+
+      - run: npm install -g aesthetic-eval
+      - run: aesthetic-eval ./out --mode static --format sarif --output report.sarif --threshold 80
+
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: report.sarif
+```
+
+SARIF results appear under **Security > Code scanning alerts** in your GitHub repo.
+
+## Browser vs Static Mode
+
+| Capability | Static | Browser |
+|------------|--------|---------|
+| HTML/CSS parsing | cheerio + css-tree | Playwright (real rendering) |
+| Contrast checking | CSS declaration pairs | Computed styles per element |
+| Accessibility | Heuristic (ARIA/semantic) | axe-core injection (full audit) |
+| Core Web Vitals | Not available | LCP, CLS, TBT via PerformanceObserver |
+| Text overflow | CSS heuristic | `scrollWidth > clientWidth` |
+| Layout reflow | Not available | 320px viewport test (WCAG 1.4.10) |
+| Speed | Fast (~1s) | Slower (~5-15s) |
+| Dependencies | None extra | Playwright + Chromium |
+
+Static mode is ideal for CI pipelines where speed matters. Browser mode gives the most accurate results.
 
 ## Grading Scale
 
 | Grade | Score |
 |-------|-------|
-| A | 90-100 |
+| A+ | 95-100 |
+| A | 90-94 |
 | B | 80-89 |
 | C | 70-79 |
 | D | 60-69 |
 | F | 0-59 |
 
-## Output
-
-- Human-readable table printed to stdout
-- Detailed JSON report saved to `report.json` (local) or `comparison-report.json` (URL)
-- Categories below 80 produce specific actionable recommendations
-
-## Example Output
+## Architecture
 
 ```
-+----------------------------------+-------+--------+
-| Category                         | Score | Weight |
-+----------------------------------+-------+--------+
-| Color & Contrast                 | 84/100|  15%   | ok
-| Typography                       | 80/100|  12%   | ok
-| Spacing Consistency              | 97/100|  10%   | ok
-| Layout & Structure               | 84/100|  12%   | ok
-| Imagery                          |100/100|   8%   | ok
-| Accessibility                    | 80/100|  10%   | ok
-| Performance Indicators           |100/100|   5%   | ok
-| Animation & Interaction          | 80/100|   5%   | ok
-| Cross-Browser & Device Compat    | 80/100|  13%   | ok
-| Text Wrapping & Line Breaking    |100/100|  10%   | ok
-+----------------------------------+-------+--------+
-| OVERALL                          | 87/100| 100%   |
-+----------------------------------+-------+--------+
-  Overall Grade: B
+src/
+├── index.ts              # Programmatic API entry point
+├── cli.ts                # CLI (commander)
+├── config/               # Config schema, defaults (with citations), loader
+├── parser/               # Static (cheerio) and browser (Playwright) parsers
+├── audits/               # 10 audit modules, each with guards
+├── scoring/              # Guard engine + weighted aggregator
+├── output/               # Table, JSON, SARIF, baseline formatters
+└── utils/                # Color (LAB/LCH), math, CSS, browser compat
 ```
+
+Each audit module exports guards with:
+- `id` — unique identifier
+- `name` — human-readable name
+- `citation` — research source for the threshold
+- `maxPenalty` — cap on score deduction
+- `requiresBrowser` — whether it needs Playwright
+- `evaluate(ctx)` — returns pass/fail with penalty and message
 
 ## Dependencies
 
-- [cheerio](https://cheerio.js.org/) - HTML parsing
-- [css-tree](https://github.com/csstree/csstree) - CSS parsing and AST traversal
+**Runtime**: cheerio, css-tree, commander, axe-core, @mdn/browser-compat-data, browserslist, color-convert
+
+**Browser mode** (optional peer dep): playwright
 
 ## License
 
